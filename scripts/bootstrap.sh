@@ -6,28 +6,22 @@ set -e
 # State directories
 # State directories
 OPENCLAW_STATE="/root/.openclaw"
-MOLT_STATE="/root/.moltbot"
-CLAW_STATE="/root/.clawdbot"
 CONFIG_FILE="$OPENCLAW_STATE/openclaw.json"
 WORKSPACE_DIR="/root/openclaw-workspace"
 
-mkdir -p "$OPENCLAW_STATE" "$MOLT_STATE" "$CLAW_STATE" "$WORKSPACE_DIR"
-chmod 700 "$OPENCLAW_STATE" "$MOLT_STATE" "$CLAW_STATE"
+mkdir -p "$OPENCLAW_STATE" "$WORKSPACE_DIR"
+chmod 700 "$OPENCLAW_STATE"
 
 # Tighten permissions on config if it exists
 if [ -f "$CONFIG_FILE" ]; then
   chmod 600 "$CONFIG_FILE"
 fi
-if [ -f "$MOLT_STATE/clawdbot.json" ]; then
-  chmod 600 "$MOLT_STATE/clawdbot.json"
-fi
+
 
 # Ensure credentials dir exists
 # Ensure credentials dir exists
-mkdir -p "$MOLT_STATE/credentials"
 mkdir -p "$OPENCLAW_STATE/credentials"
 mkdir -p "$OPENCLAW_STATE/agents/main/sessions"
-chmod 700 "$MOLT_STATE/credentials"
 chmod 700 "$OPENCLAW_STATE/credentials"
 
 # Universal Permission Hardening (Runtime Fail-safe)
@@ -77,7 +71,7 @@ rescue_binary() {
 }
 
 # Rescue critical tools
-for target in openclaw moltbot gemini codex opencode claude kimi; do
+for target in openclaw gemini codex opencode claude kimi; do
   rescue_binary "$target"
 done
 # ----------------------------------------------------
@@ -95,11 +89,11 @@ done
 # Ensure aliases work for interactive sessions
 echo "alias fd=fdfind" >> /root/.bashrc
 echo "alias bat=batcat" >> /root/.bashrc
+# Ensure aliases work for interactive sessions
+echo "alias fd=fdfind" >> /root/.bashrc
+echo "alias bat=batcat" >> /root/.bashrc
 echo "alias ll='ls -alF'" >> /root/.bashrc
-echo "alias molty='openclaw'" >> /root/.bashrc
-echo "alias clawd='openclaw'" >> /root/.bashrc
-echo "alias moltbot='openclaw'" >> /root/.bashrc
-echo "alias claw='openclaw'" >> /root/.bashrc
+
 
 # Generate config on first boot
 if [ ! -f "$CONFIG_FILE" ]; then
@@ -382,13 +376,8 @@ fi
 
 
 # Ensure all possible naming variations exist on every boot for robustness
-cp -f "$CONFIG_FILE" "$MOLT_STATE/clawdbot.json" 2>/dev/null || true
-cp -f "$CONFIG_FILE" "$MOLT_STATE/moltbot.json" 2>/dev/null || true
-cp -f "$CONFIG_FILE" "$CLAW_STATE/moltbot.json" 2>/dev/null || true
-cp -f "$CONFIG_FILE" "$CLAW_STATE/clawdbot.json" 2>/dev/null || true
-ln -sf "$CONFIG_FILE" "$MOLT_STATE/config.json" 2>/dev/null || true
-ln -sf "$CONFIG_FILE" "$CLAW_STATE/config.json" 2>/dev/null || true
 ln -sf "$CONFIG_FILE" "$OPENCLAW_STATE/config.json" 2>/dev/null || true
+
 
 
 

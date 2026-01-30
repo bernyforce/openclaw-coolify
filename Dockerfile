@@ -68,7 +68,7 @@ ENV PATH="/root/.bun/bin:/root/.bun/install/global/bin:${PATH}"
 RUN bun install -g vercel @marp-team/marp-cli https://github.com/tobi/qmd && hash -r
 
 # Configure QMD Persistence
-ENV XDG_CACHE_HOME="/root/.moltbot/cache"
+ENV XDG_CACHE_HOME="/root/.openclaw/cache"
 
 # Python tools
 RUN pip3 install ipython csvkit openpyxl python-docx pypdf botasaurus browser-use playwright --break-system-packages && \
@@ -98,9 +98,6 @@ RUN if [ "$OPENCLAW_BETA" = "true" ]; then \
     fi && \
     if command -v openclaw >/dev/null 2>&1; then \
     echo "✅ openclaw binary found"; \
-    # Create aliases for backward compatibility
-    ln -sf "$(command -v openclaw)" /usr/local/bin/moltbot; \
-    ln -sf "$(command -v openclaw)" /usr/local/bin/clawdbot; \
     else \
     echo "❌ OpenClaw install failed (binary 'openclaw' not found)"; \
     exit 1; \
