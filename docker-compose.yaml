@@ -1,41 +1,132 @@
 services:
+  registry:
+    image: registry:2
+    restart: unless-stopped
+    volumes:
+      - registry-data:/var/lib/registry
+    environment:
+      REGISTRY_HTTP_SECRET: ${SERVICE_BASE64_REGISTRY}
+
   openclaw:
-    # CORRECTION : On construit l'image depuis le code source (Build)
+    # On garde le build pour avoir la dernière version du code source
     build:
       context: .
       args:
         - OPENCLAW_BETA=${OPENCLAW_BETA:-false}
-    
-    container_name: openclaw
-    restart: unless-stopped
-    
-    # On expose le port
-    ports:
-      - "18789:18789"
-      
+    restart: on-failure:10
+    ulimits:
+      nofile:
+        soft: 65535
+        hard: 65535
+    env_file:
+      - .env
     environment:
-      # --- CONFIG SYSTEME ---
+      # --- CONFIGURATION SYSTEME ---
+      DOCKER_HOST: tcp://docker-proxy:2375
+      OPENCLAW_ENABLE_WEBHOOK_PROXY: "1"
       PORT: 18789
-      # Désactive le bac à sable lourd (évite les bugs sur VPS)
-      SANDBOX_CONTAINER: 'false'
-      OPENCLAW_AUTO_BOOTSTRAP: 'true'
-      OPENCLAW_STATE_DIR: /data/.openclaw
+      NODE_ENV: production
+      NODE_OPTIONS: '--max-old-space-size=4096'
+      HOME: /data
+      TERM: xterm-256color
       
-      # --- CERVEAU (GROQ) ---
+      # Persistence: Command History
+      HISTFILE: /data/.bash_history
+      HISTSIZE: 50000
+      HISTSAVE: 50000
+      HISTCONTROL: ignoreboth
+      
+      # Chemins de config
+      XDG_CONFIG_HOME: /data/.config
+      XDG_DATA_HOME: /data/.local/share
+      XDG_CACHE_HOME: /data/.cache
+      NPM_CONFIG_CACHE: /data/.npm
+      BUN_INSTALL: /data/.bun
+      OPENCLAW_STATE_DIR: /data/.openclaw
+      OPENCLAW_WORKSPACE: /data/openclaw-workspace
+
+      # Réseau
+      OPENCLAW_GATEWAY_BIND: lan
+      OPENCLAW_GATEWAY_PORT: ${OPENCLAW_GATEWAY_PORT:-18789}
+      BASE_URL: 'https://${SERVICE_FQDN_OPENCLAW}'
+      PUBLIC_URL: 'https://${SERVICE_FQDN_OPENCLAW}'
+      GATEWAY_TRUSTED_PROXIES: '*'
+
+      # --- INTELLIGENCE (GROQ ULTRA-RAPIDE) ---
+      # On force la configuration ici pour qu'elle soit incassable
       LLM_PROVIDER: 'openai'
       OPENAI_API_BASE: 'https://api.groq.com/openai/v1'
       LLM_MODEL: 'llama-3.1-8b-instant'
-      OPENAI_API_KEY: '${OPENAI_API_KEY}'
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      
+      # --- AUTRES CLES ---
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_USERNAME: ${GITHUB_USERNAME}
+      GITHUB_EMAIL: ${GITHUB_EMAIL}
+
+      # --- OPTIONS ---
+      OPENCLAW_AUTO_BOOTSTRAP: "1"
+      OPENCLAW_PRINT_ACCESS: "1"
+      CHOKIDAR_USEPOLLING: "true"
+      SANDBOX_CONTAINER: ${SANDBOX_CONTAINER:-false}
+      OPENCLAW_BETA: ${OPENCLAW_BETA:-false}
 
     volumes:
-      # Stockage persistant
+      # On stocke tout dans /data (c'est le HOME défini plus haut)
       - openclaw-data:/data
-    
+      # J'ai retiré les montages /root inutiles qui causent des conflits de permission
+
+    depends_on:
+      - docker-proxy
+      - searxng
+      - registry
+
+    command: ["bash", "/app/scripts/bootstrap.sh"]
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:18789/"]
       interval: 30s
       timeout: 10s
       retries: 3
+      start_period: 120s
+
+  docker-proxy:
+    image: tecnativa/docker-socket-proxy:latest
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      POST: 1
+      CONTAINERS: 1
+      IMAGES: 1
+      NETWORKS: 1
+      INFO: 1
+      VERSION: 1
+      EXEC: 1
+      EVENTS: 1
+
+  searxng:
+    build:
+      context: .
+      dockerfile: searxng/Dockerfile
+    restart: unless-stopped
+    volumes:
+      - searxng-data:/var/lib/searxng
+    environment:
+      SEARXNG_BASE_URL: http://searxng:8080
+      SEARXNG_SERVER_SECRET_KEY: ${SERVICE_BASE64_SEARXNG}
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
 
 volumes:
   openclaw-data:
+  searxng-data:
+  registry-data:
+  # On garde les anciens volumes définis pour ne pas casser Coolify, mais on ne les utilise plus
+  openclaw-config:
+  openclaw-workspace:
