@@ -8,12 +8,10 @@ services:
       REGISTRY_HTTP_SECRET: '${SERVICE_BASE64_REGISTRY}'
 
   openclaw:
-    # On utilise la version stable officielle (beaucoup plus rapide à déployer)
-   build:
-    context: .
-    args:
-      - 'OPENCLAW_BETA=${OPENCLAW_BETA:-false}'
-
+    build:
+      context: .
+      args:
+        - 'OPENCLAW_BETA=${OPENCLAW_BETA:-false}'
     restart: 'on-failure:10'
     ulimits:
       nofile:
@@ -22,35 +20,23 @@ services:
     env_file:
       - .env
     environment:
-      # --- CONFIGURATION SYSTEME ---
       PORT: 18789
       HOME: /data
-      # On force les dossiers de données dans le volume persistant
       OPENCLAW_STATE_DIR: /data/.openclaw
       OPENCLAW_WORKSPACE: /data/openclaw-workspace
-      
-      # --- CONFIGURATION RESEAU ---
       OPENCLAW_GATEWAY_PORT: '${OPENCLAW_GATEWAY_PORT:-18789}'
+      
+      LLM_PROVIDER: 'openai'
+      OPENAI_API_BASE: 'https://api.groq.com/openai/v1'
+      OPENAI_API_KEY: '${OPENAI_API_KEY}'
+      LLM_MODEL: 'llama-3.1-8b-instant'
+      
       BASE_URL: 'https://${SERVICE_FQDN_OPENCLAW}'
       PUBLIC_URL: 'https://${SERVICE_FQDN_OPENCLAW}'
       GATEWAY_TRUSTED_PROXIES: '*'
-      
-      # --- CONFIGURATION INTELLIGENCE (GROQ PAR DEFAUT) ---
-      # On dit à OpenClaw d'utiliser le protocole OpenAI
-      LLM_PROVIDER: 'openai'
-      # On change l'adresse pour celle de Groq
-      OPENAI_API_BASE: 'https://api.groq.com/openai/v1'
-      # On injecte ta clé (qui sera définie dans les Secrets Coolify)
-      OPENAI_API_KEY: '${OPENAI_API_KEY}'
-      # On définit le modèle rapide par défaut
-      LLM_MODEL: 'llama-3.1-8b-instant'
-      
-      # --- AUTRES CLES ---
       TELEGRAM_BOT_TOKEN: '${TELEGRAM_BOT_TOKEN}'
       
-      # --- OPTIONS ---
       OPENCLAW_AUTO_BOOTSTRAP: '1'
-      # Désactive le mode bac à sable complexe pour gagner en vitesse
       SANDBOX_CONTAINER: 'false'
 
     volumes:
