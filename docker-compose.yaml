@@ -1,92 +1,44 @@
 services:
-  registry:
-    image: 'registry:2'
-    restart: unless-stopped
-    volumes:
-      - 'registry-data:/var/lib/registry'
-    environment:
-      REGISTRY_HTTP_SECRET: '${SERVICE_BASE64_REGISTRY}'
-
   openclaw:
-    build:
-      context: .
-      args:
-        - 'OPENCLAW_BETA=${OPENCLAW_BETA:-false}'
+    # On utilise la version stable officielle (téléchargement rapide)
+    image: openclaw/openclaw:latest
+    container_name: openclaw
+    restart: unless-stopped
+    
+    # On expose le port pour que Coolify puisse le router vers ton domaine
     ports:
       - "18789:18789"
-    restart: 'on-failure:10'
-    ulimits:
-      nofile:
-        soft: 65535
-        hard: 65535
-    env_file:
-      - .env
+      
     environment:
+      # --- CONFIGURATION SYSTEME ---
       PORT: 18789
-      HOME: /data
-      OPENCLAW_STATE_DIR: /data/.openclaw
-      OPENCLAW_WORKSPACE: /data/openclaw-workspace
-      OPENCLAW_GATEWAY_PORT: '${OPENCLAW_GATEWAY_PORT:-18789}'
-      
-      LLM_PROVIDER: 'openai'
-      OPENAI_API_BASE: 'https://api.groq.com/openai/v1'
-      OPENAI_API_KEY: '${OPENAI_API_KEY}'
-      LLM_MODEL: 'llama-3.1-8b-instant'
-      
-      BASE_URL: 'https://${SERVICE_FQDN_OPENCLAW}'
-      PUBLIC_URL: 'https://${SERVICE_FQDN_OPENCLAW}'
-      GATEWAY_TRUSTED_PROXIES: '*'
-      TELEGRAM_BOT_TOKEN: '${TELEGRAM_BOT_TOKEN}'
-      
-      OPENCLAW_AUTO_BOOTSTRAP: '1'
+      # CRUCIAL : On désactive le mode "Docker-dans-Docker" qui faisait planter ton instance précédente
       SANDBOX_CONTAINER: 'false'
+      # On active le démarrage automatique de l'agent
+      OPENCLAW_AUTO_BOOTSTRAP: 'true'
+      # On définit le dossier de stockage propre
+      OPENCLAW_STATE_DIR: /data/.openclaw
+      
+      # --- CERVEAU (GROQ FORCÉ) ---
+      # On dit à OpenClaw d'utiliser le protocole standard
+      LLM_PROVIDER: 'openai'
+      # On pointe vers les serveurs ultra-rapides de Groq
+      OPENAI_API_BASE: 'https://api.groq.com/openai/v1'
+      # On choisit le modèle instantané pour commencer (tu pourras changer après)
+      LLM_MODEL: 'llama-3.1-8b-instant'
+      # Ta clé sera injectée par Coolify (plus sécurisé)
+      OPENAI_API_KEY: '${OPENAI_API_KEY}'
 
     volumes:
-      - 'openclaw-data:/data'
-    depends_on:
-      - docker-proxy
-    command:
-      - bash
-      - /app/scripts/bootstrap.sh
+      # Un seul volume propre pour tout stocker
+      - openclaw-data:/data
+    
+    # Vérification de santé pour que Coolify sache quand c'est prêt
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:18789/"]
       interval: 30s
       timeout: 10s
       retries: 3
 
-  docker-proxy:
-    image: 'tecnativa/docker-socket-proxy:latest'
-    restart: unless-stopped
-    volumes:
-      - '/var/run/docker.sock:/var/run/docker.sock:ro'
-    environment:
-      POST: 1
-      CONTAINERS: 1
-      IMAGES: 1
-      NETWORKS: 1
-      INFO: 1
-      VERSION: 1
-      EXEC: 1
-      EVENTS: 1
-
-  searxng:
-    build:
-      context: .
-      dockerfile: searxng/Dockerfile
-    restart: unless-stopped
-    volumes:
-      - 'searxng-data:/var/lib/searxng'
-    environment:
-      SEARXNG_BASE_URL: 'http://searxng:8080'
-      SEARXNG_SERVER_SECRET_KEY: '${SERVICE_BASE64_SEARXNG}'
-    cap_drop:
-      - ALL
-    cap_add:
-      - CHOWN
-      - SETGID
-      - SETUID
-
 volumes:
-  openclaw-data: null
-  searxng-data: null
-  registry-data: null
+  openclaw-data:
