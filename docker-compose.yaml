@@ -3,42 +3,13 @@ services:
     image: 'registry:2'
     restart: unless-stopped
     volumes:
-      - 'pwkk08gow4gowswc88w84kck_registry-data:/var/lib/registry'
+      - 'registry-data:/var/lib/registry'
     environment:
       REGISTRY_HTTP_SECRET: '${SERVICE_BASE64_REGISTRY}'
-      SERVICE_BASE64_REGISTRY: '${SERVICE_BASE64_REGISTRY}'
-      COOLIFY_BRANCH: '"main"'
-      COOLIFY_RESOURCE_UUID: pwkk08gow4gowswc88w84kck
-      COOLIFY_CONTAINER_NAME: registry-pwkk08gow4gowswc88w84kck-053302184136
-      # ✅ CORRIGÉ
-      SERVICE_URL_OPENCLAW: 'https://clawd.iatuto.com'
-      SERVICE_FQDN_OPENCLAW: 'clawd.iatuto.com'
-      SERVICE_NAME_REGISTRY: registry
-      SERVICE_NAME_OPENCLAW: openclaw
-      SERVICE_NAME_DOCKER_PROXY: docker-proxy
-      SERVICE_NAME_SEARXNG: searxng
-    container_name: registry-pwkk08gow4gowswc88w84kck-053302184136
-    labels:
-      - coolify.managed=true
-      - coolify.version=4.0.0-beta.462
-      - coolify.applicationId=9
-      - coolify.type=application
-      - coolify.name=registry-pwkk08gow4gowswc88w84kck-053302184136
-      - coolify.resourceName=essamamdaniopenclaw-coolifymain-s4s4c0okc0k0kwcc408ow488
-      - coolify.projectName=clawdbot
-      - coolify.serviceName=essamamdaniopenclaw-coolifymain-s4s4c0okc0k0kwcc408ow488
-      - coolify.environmentName=production
-      - coolify.pullRequestId=0
-    networks:
-      pwkk08gow4gowswc88w84kck: null
-    env_file:
-      - .env
 
   openclaw:
-    build:
-      context: .
-      args:
-        - 'OPENCLAW_BETA=${OPENCLAW_BETA:-false}'
+    # On utilise la version stable officielle (beaucoup plus rapide à déployer)
+    image: 'openclaw/openclaw:latest'
     restart: 'on-failure:10'
     ulimits:
       nofile:
@@ -47,116 +18,49 @@ services:
     env_file:
       - .env
     environment:
-      DOCKER_HOST: 'tcp://docker-proxy:2375'
-      OPENCLAW_ENABLE_WEBHOOK_PROXY: '1'
+      # --- CONFIGURATION SYSTEME ---
       PORT: 18789
-      NODE_ENV: production
-      NODE_OPTIONS: '--max-old-space-size=4096'
-      HOME: /root
-      TERM: xterm-256color
-      HISTFILE: /root/.openclaw/.bash_history
-      HISTSIZE: 50000
-      HISTSAVE: 50000
-      HISTCONTROL: ignoreboth
-      OPENCLAW_GATEWAY_BIND: lan
-      OPENCLAW_GATEWAY_PORT: '18789'
-      OPENCLAW_STATE_DIR: /root/.openclaw
-      OPENCLAW_WORKSPACE: /root/openclaw-workspace
-      OPENAI_API_KEY: '${OPENAI_API_KEY}'
-      MINIMAX_API_KEY: '${MINIMAX_API_KEY}'
-      ANTHROPIC_API_KEY: '${ANTHROPIC_API_KEY}'
-      GEMINI_API_KEY: '${GEMINI_API_KEY}'
-      KIMI_API_KEY: '${KIMI_API_KEY}'
-      OPENCODE_API_KEY: '${OPENCODE_API_KEY}'
-      MOONSHOT_API_KEY: '${KIMI_API_KEY}'
-      TELEGRAM_BOT_TOKEN: '${TELEGRAM_BOT_TOKEN}'
-      SANDBOX_CONTAINER: '${SANDBOX_CONTAINER:-false}'
-      GOOGLE_MAPS_API_KEY: '${GOOGLE_MAPS_API_KEY}'
-      NANOBANANA_API_KEY: '${NANOBANANA_API_KEY}'
-      ELEVENLABS_API_KEY: '${ELEVENLABS_API_KEY}'
-      # ✅ CORRIGÉ - URLs et domaines
-      BASE_URL: 'https://clawd.iatuto.com'
-      PUBLIC_URL: 'https://clawd.iatuto.com'
-      SERVICE_URL_OPENCLAW: 'https://clawd.iatuto.com'
-      SERVICE_FQDN_OPENCLAW: 'clawd.iatuto.com'
-      COOLIFY_URL: 'https://clawd.iatuto.com'
-      COOLIFY_FQDN: 'clawd.iatuto.com'
-      OPENCLAW_AUTO_BOOTSTRAP: '1'
-      OPENCLAW_PRINT_ACCESS: '1'
+      HOME: /data
+      # On force les dossiers de données dans le volume persistant
+      OPENCLAW_STATE_DIR: /data/.openclaw
+      OPENCLAW_WORKSPACE: /data/openclaw-workspace
+      
+      # --- CONFIGURATION RESEAU ---
+      OPENCLAW_GATEWAY_PORT: '${OPENCLAW_GATEWAY_PORT:-18789}'
+      BASE_URL: 'https://${SERVICE_FQDN_OPENCLAW}'
+      PUBLIC_URL: 'https://${SERVICE_FQDN_OPENCLAW}'
       GATEWAY_TRUSTED_PROXIES: '*'
-      CHOKIDAR_USEPOLLING: 'true'
-      CF_TUNNEL_TOKEN: '${CF_TUNNEL_TOKEN}'
-      VERCEL_ORG_ID: '${VERCEL_ORG_ID}'
-      VERCEL_PROJECT_ID: '${VERCEL_PROJECT_ID}'
-      VERCEL_TOKEN: '${VERCEL_TOKEN}'
-      GITHUB_TOKEN: '${GITHUB_TOKEN}'
-      GITHUB_USERNAME: '${GITHUB_USERNAME}'
-      GITHUB_EMAIL: '${GITHUB_EMAIL}'
-      OPENCLAW_BETA: '${OPENCLAW_BETA:-false}'
-      COOLIFY_BRANCH: '"main"'
-      COOLIFY_RESOURCE_UUID: pwkk08gow4gowswc88w84kck
-      COOLIFY_CONTAINER_NAME: openclaw-pwkk08gow4gowswc88w84kck-053302204967
-      SERVICE_NAME_REGISTRY: registry
-      SERVICE_NAME_OPENCLAW: openclaw
-      SERVICE_NAME_DOCKER_PROXY: docker-proxy
-      SERVICE_NAME_SEARXNG: searxng
+      
+      # --- CONFIGURATION INTELLIGENCE (GROQ PAR DEFAUT) ---
+      # On dit à OpenClaw d'utiliser le protocole OpenAI
+      LLM_PROVIDER: 'openai'
+      # On change l'adresse pour celle de Groq
+      OPENAI_API_BASE: 'https://api.groq.com/openai/v1'
+      # On injecte ta clé (qui sera définie dans les Secrets Coolify)
+      OPENAI_API_KEY: '${OPENAI_API_KEY}'
+      # On définit le modèle rapide par défaut
+      LLM_MODEL: 'llama-3.1-8b-instant'
+      
+      # --- AUTRES CLES ---
+      TELEGRAM_BOT_TOKEN: '${TELEGRAM_BOT_TOKEN}'
+      
+      # --- OPTIONS ---
+      OPENCLAW_AUTO_BOOTSTRAP: '1'
+      # Désactive le mode bac à sable complexe pour gagner en vitesse
+      SANDBOX_CONTAINER: 'false'
+
     volumes:
-      - 'pwkk08gow4gowswc88w84kck_openclaw-config:/root/.openclaw'
-      - 'pwkk08gow4gowswc88w84kck_openclaw-workspace:/root/openclaw-workspace'
+      - 'openclaw-data:/data'
     depends_on:
       - docker-proxy
     command:
       - bash
       - /app/scripts/bootstrap.sh
     healthcheck:
-      test:
-        - CMD
-        - curl
-        - '-f'
-        - 'http://localhost:18789/'
+      test: ["CMD", "curl", "-f", "http://localhost:18789/"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 120s
-    container_name: openclaw-pwkk08gow4gowswc88w84kck-053302204967
-    labels:
-      - coolify.managed=true
-      - coolify.version=4.0.0-beta.462
-      - coolify.applicationId=9
-      - coolify.type=application
-      - coolify.name=openclaw-pwkk08gow4gowswc88w84kck-053302204967
-      - coolify.resourceName=essamamdaniopenclaw-coolifymain-s4s4c0okc0k0kwcc408ow488
-      - coolify.projectName=clawdbot
-      - coolify.serviceName=essamamdaniopenclaw-coolifymain-s4s4c0okc0k0kwcc408ow488
-      - coolify.environmentName=production
-      - coolify.pullRequestId=0
-      # ✅ CORRIGÉ - Labels Traefik pour domaine complet
-      - traefik.enable=true
-      - traefik.http.middlewares.gzip.compress=true
-      - traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https
-      # HTTP Router (redirection vers HTTPS)
-      - traefik.http.routers.http-0-pwkk08gow4gowswc88w84kck-openclaw.entryPoints=http
-      - traefik.http.routers.http-0-pwkk08gow4gowswc88w84kck-openclaw.middlewares=redirect-to-https
-      - 'traefik.http.routers.http-0-pwkk08gow4gowswc88w84kck-openclaw.rule=Host(`clawd.iatuto.com`)'
-      # HTTPS Router
-      - traefik.http.routers.https-0-pwkk08gow4gowswc88w84kck-openclaw.entryPoints=https
-      - 'traefik.http.routers.https-0-pwkk08gow4gowswc88w84kck-openclaw.middlewares=gzip'
-      - 'traefik.http.routers.https-0-pwkk08gow4gowswc88w84kck-openclaw.rule=Host(`clawd.iatuto.com`)'
-      - traefik.http.routers.https-0-pwkk08gow4gowswc88w84kck-openclaw.tls.certresolver=letsencrypt
-      - traefik.http.routers.https-0-pwkk08gow4gowswc88w84kck-openclaw.tls=true
-      # Service definition (port backend)
-      - traefik.http.services.https-0-pwkk08gow4gowswc88w84kck-openclaw.loadbalancer.server.port=18789
-      # ✅ AJOUTÉ - Support WebSocket pour OpenClaw
-      - traefik.http.middlewares.openclaw-headers.headers.customrequestheaders.X-Forwarded-Proto=https
-      - traefik.http.middlewares.openclaw-headers.headers.customrequestheaders.Upgrade=websocket
-      - traefik.http.middlewares.openclaw-headers.headers.customrequestheaders.Connection=Upgrade
-      # Caddy labels (si vous utilisez Caddy au lieu de Traefik)
-      - 'caddy_0.encode=zstd gzip'
-      - 'caddy_0.reverse_proxy={{upstreams 18789}}'
-      - 'caddy_0=clawd.iatuto.com'
-      - caddy_ingress_network=pwkk08gow4gowswc88w84kck
-    networks:
-      pwkk08gow4gowswc88w84kck: null
 
   docker-proxy:
     image: 'tecnativa/docker-socket-proxy:latest'
@@ -164,7 +68,6 @@ services:
     volumes:
       - '/var/run/docker.sock:/var/run/docker.sock:ro'
     environment:
-      LOG_LEVEL: info
       POST: 1
       CONTAINERS: 1
       IMAGES: 1
@@ -173,32 +76,6 @@ services:
       VERSION: 1
       EXEC: 1
       EVENTS: 1
-      COOLIFY_BRANCH: '"main"'
-      COOLIFY_RESOURCE_UUID: pwkk08gow4gowswc88w84kck
-      COOLIFY_CONTAINER_NAME: docker-proxy-pwkk08gow4gowswc88w84kck-053302272712
-      # ✅ CORRIGÉ
-      SERVICE_URL_OPENCLAW: 'https://clawd.iatuto.com'
-      SERVICE_FQDN_OPENCLAW: 'clawd.iatuto.com'
-      SERVICE_NAME_REGISTRY: registry
-      SERVICE_NAME_OPENCLAW: openclaw
-      SERVICE_NAME_DOCKER_PROXY: docker-proxy
-      SERVICE_NAME_SEARXNG: searxng
-    container_name: docker-proxy-pwkk08gow4gowswc88w84kck-053302272712
-    labels:
-      - coolify.managed=true
-      - coolify.version=4.0.0-beta.462
-      - coolify.applicationId=9
-      - coolify.type=application
-      - coolify.name=docker-proxy-pwkk08gow4gowswc88w84kck-053302272712
-      - coolify.resourceName=essamamdaniopenclaw-coolifymain-s4s4c0okc0k0kwcc408ow488
-      - coolify.projectName=clawdbot
-      - coolify.serviceName=essamamdaniopenclaw-coolifymain-s4s4c0okc0k0kwcc408ow488
-      - coolify.environmentName=production
-      - coolify.pullRequestId=0
-    networks:
-      pwkk08gow4gowswc88w84kck: null
-    env_file:
-      - .env
 
   searxng:
     build:
@@ -206,55 +83,18 @@ services:
       dockerfile: searxng/Dockerfile
     restart: unless-stopped
     volumes:
-      - 'pwkk08gow4gowswc88w84kck_searxng-data:/var/lib/searxng'
+      - 'searxng-data:/var/lib/searxng'
     environment:
       SEARXNG_BASE_URL: 'http://searxng:8080'
       SEARXNG_SERVER_SECRET_KEY: '${SERVICE_BASE64_SEARXNG}'
-      SERVICE_BASE64_SEARXNG: '${SERVICE_BASE64_SEARXNG}'
-      COOLIFY_BRANCH: '"main"'
-      COOLIFY_RESOURCE_UUID: pwkk08gow4gowswc88w84kck
-      COOLIFY_CONTAINER_NAME: searxng-pwkk08gow4gowswc88w84kck-053302283327
-      # ✅ CORRIGÉ
-      SERVICE_URL_OPENCLAW: 'https://clawd.iatuto.com'
-      SERVICE_FQDN_OPENCLAW: 'clawd.iatuto.com'
-      SERVICE_NAME_REGISTRY: registry
-      SERVICE_NAME_OPENCLAW: openclaw
-      SERVICE_NAME_DOCKER_PROXY: docker-proxy
-      SERVICE_NAME_SEARXNG: searxng
     cap_drop:
       - ALL
     cap_add:
       - CHOWN
       - SETGID
       - SETUID
-    container_name: searxng-pwkk08gow4gowswc88w84kck-053302283327
-    labels:
-      - coolify.managed=true
-      - coolify.version=4.0.0-beta.462
-      - coolify.applicationId=9
-      - coolify.type=application
-      - coolify.name=searxng-pwkk08gow4gowswc88w84kck-053302283327
-      - coolify.resourceName=essamamdaniopenclaw-coolifymain-s4s4c0okc0k0kwcc408ow488
-      - coolify.projectName=clawdbot
-      - coolify.serviceName=essamamdaniopenclaw-coolifymain-s4s4c0okc0k0kwcc408ow488
-      - coolify.environmentName=production
-      - coolify.pullRequestId=0
-    networks:
-      pwkk08gow4gowswc88w84kck: null
-    env_file:
-      - .env
 
 volumes:
-  pwkk08gow4gowswc88w84kck_registry-data:
-    name: pwkk08gow4gowswc88w84kck_registry-data
-  pwkk08gow4gowswc88w84kck_openclaw-config:
-    name: pwkk08gow4gowswc88w84kck_openclaw-config
-  pwkk08gow4gowswc88w84kck_openclaw-workspace:
-    name: pwkk08gow4gowswc88w84kck_openclaw-workspace
-  pwkk08gow4gowswc88w84kck_searxng-data:
-    name: pwkk08gow4gowswc88w84kck_searxng-data
-
-networks:
-  pwkk08gow4gowswc88w84kck:
-    name: pwkk08gow4gowswc88w84kck
-    external: true
+  openclaw-data: null
+  searxng-data: null
+  registry-data: null
