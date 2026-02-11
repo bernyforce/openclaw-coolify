@@ -1,39 +1,36 @@
 services:
   openclaw:
-    # On utilise la version stable officielle (téléchargement rapide)
-    image: openclaw/openclaw:latest
+    # CORRECTION : On construit l'image depuis le code source (Build)
+    build:
+      context: .
+      args:
+        - OPENCLAW_BETA=${OPENCLAW_BETA:-false}
+    
     container_name: openclaw
     restart: unless-stopped
     
-    # On expose le port pour que Coolify puisse le router vers ton domaine
+    # On expose le port
     ports:
       - "18789:18789"
       
     environment:
-      # --- CONFIGURATION SYSTEME ---
+      # --- CONFIG SYSTEME ---
       PORT: 18789
-      # CRUCIAL : On désactive le mode "Docker-dans-Docker" qui faisait planter ton instance précédente
+      # Désactive le bac à sable lourd (évite les bugs sur VPS)
       SANDBOX_CONTAINER: 'false'
-      # On active le démarrage automatique de l'agent
       OPENCLAW_AUTO_BOOTSTRAP: 'true'
-      # On définit le dossier de stockage propre
       OPENCLAW_STATE_DIR: /data/.openclaw
       
-      # --- CERVEAU (GROQ FORCÉ) ---
-      # On dit à OpenClaw d'utiliser le protocole standard
+      # --- CERVEAU (GROQ) ---
       LLM_PROVIDER: 'openai'
-      # On pointe vers les serveurs ultra-rapides de Groq
       OPENAI_API_BASE: 'https://api.groq.com/openai/v1'
-      # On choisit le modèle instantané pour commencer (tu pourras changer après)
       LLM_MODEL: 'llama-3.1-8b-instant'
-      # Ta clé sera injectée par Coolify (plus sécurisé)
       OPENAI_API_KEY: '${OPENAI_API_KEY}'
 
     volumes:
-      # Un seul volume propre pour tout stocker
+      # Stockage persistant
       - openclaw-data:/data
     
-    # Vérification de santé pour que Coolify sache quand c'est prêt
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:18789/"]
       interval: 30s
