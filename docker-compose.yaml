@@ -9,7 +9,11 @@ services:
 
   openclaw:
     # On utilise la version stable officielle (beaucoup plus rapide à déployer)
-    image: 'openclaw/openclaw:latest'
+   build:
+    context: .
+    args:
+      - 'OPENCLAW_BETA=${OPENCLAW_BETA:-false}'
+
     restart: 'on-failure:10'
     ulimits:
       nofile:
